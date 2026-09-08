@@ -150,6 +150,22 @@ def get_applications():
 
 
 # ------------------------------------------------------------------------------
+# Endpoint: GET /api/applications/<int:id>
+# Description:
+#   Retrieves a single job application by its primary key ID.
+# Method: GET
+# URL: http://127.0.0.1:5001/api/applications/1
+# ------------------------------------------------------------------------------
+@app.route("/api/applications/<int:id>", methods=["GET"], strict_slashes=False)
+def get_application_by_id(id):
+    # Search the database for the application with this specific ID
+    application = db.session.get(JobApplication, id)
+    if not application:
+        return jsonify({"error": f"Application with ID {id} not found."}), 404
+    return jsonify(application.to_dict()), 200
+
+
+# ------------------------------------------------------------------------------
 # Endpoint 2: POST /api/applications
 # Description:
 #   Creates a new job or internship application record in the database.
