@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Job/Internship Application Tracker</title>
-  <!-- Basic clean styling via static CSS (NO JavaScript used anywhere) -->
+  <!-- Basic clean styling via static CSS (Strictly NO JavaScript used anywhere) -->
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
@@ -12,10 +12,23 @@
     <!-- Page Header -->
     <header class="header">
       <h1>Job/Internship Application Tracker</h1>
-      <p>Track your applications, statuses, and links in one place. Powered by Flask and SQLAlchemy.</p>
+      <p>Track applications, manage statuses, and record links. Powered by Flask, SQLAlchemy & MySQL.</p>
     </header>
 
-    <!-- Summary Stats Calculated with Jinja2 (Pure server-side rendering, zero JS) -->
+    <!-- Flash Alert Messages (Pure server-side rendering, zero JS) -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-container">
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">
+              {{ message }}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <!-- Summary Stats Calculated with Jinja2 -->
     <div class="stats-grid">
       <div class="stat-card">
         <div class="stat-title">Total Applications</div>
@@ -41,6 +54,56 @@
       </div>
     </div>
 
+    <!-- Add Application HTML Form Card (Zero JS, Pure Standard HTML Form) -->
+    <div class="form-card">
+      <div class="form-header-bar">
+        <h2>Add New Application</h2>
+        <span class="badge-form-hint">HTML Form &rarr; POST /applications/add</span>
+      </div>
+      <form action="{{ url_for('add_application_form') }}" method="POST" class="app-form">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="company">Company <span class="required">*</span></label>
+            <input type="text" id="company" name="company" placeholder="e.g. Google, Amazon, Microsoft" required>
+          </div>
+
+          <div class="form-group">
+            <label for="role">Role / Position <span class="required">*</span></label>
+            <input type="text" id="role" name="role" placeholder="e.g. Software Engineer Intern" required>
+          </div>
+
+          <div class="form-group">
+            <label for="applied_date">Applied Date</label>
+            <input type="date" id="applied_date" name="applied_date" value="{{ today }}">
+          </div>
+
+          <div class="form-group">
+            <label for="status">Application Status</label>
+            <select id="status" name="status">
+              <option value="Applied" selected>Applied</option>
+              <option value="Interviewing">Interviewing</option>
+              <option value="Offered">Offered</option>
+              <option value="Rejected">Rejected</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="job_link">Job Posting Link</label>
+            <input type="url" id="job_link" name="job_link" placeholder="https://careers.company.com/...">
+          </div>
+
+          <div class="form-group">
+            <label for="resume_version">Resume Version</label>
+            <input type="text" id="resume_version" name="resume_version" placeholder="e.g. SWE_v2, Backend_2026">
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn-submit">+ Add Application</button>
+        </div>
+      </form>
+    </div>
+
     <!-- Applications Table Card -->
     <div class="table-card">
       <div class="table-header-bar">
@@ -60,13 +123,14 @@
               <th>Status</th>
               <th>Job Link</th>
               <th>Resume</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
             {% for app in applications %}
             <tr>
               <td><strong>#{{ app.id }}</strong></td>
-              <td>{{ app.company }}</td>
+              <td><strong>{{ app.company }}</strong></td>
               <td>{{ app.role }}</td>
               <td>{{ app.applied_date }}</td>
               <td>
@@ -96,6 +160,11 @@
                   <span style="color: var(--text-muted);">&mdash;</span>
                 {% endif %}
               </td>
+              <td>
+                <form action="{{ url_for('delete_application_form', id=app.id) }}" method="POST" style="display:inline;">
+                  <button type="submit" class="btn-delete" title="Delete application">Delete</button>
+                </form>
+              </td>
             </tr>
             {% endfor %}
           </tbody>
@@ -104,12 +173,7 @@
         <!-- Empty state when no records exist yet -->
         <div class="empty-state">
           <h3>No applications tracked yet</h3>
-          <p>You can create a new record by sending a POST request to <code>/api/applications</code> with JSON data:</p>
-          <div class="code-box">
-curl -X POST http://127.0.0.1:5001/api/applications \<br>
-&nbsp;&nbsp;-H "Content-Type: application/json" \<br>
-&nbsp;&nbsp;-d '{"company": "Google", "role": "Software Engineer Intern", "status": "Applied", "resume_version": "v1"}'
-          </div>
+          <p>Fill out the form above or send a POST request to <code>/api/applications</code> to add your first application!</p>
         </div>
         {% endif %}
       </div>
