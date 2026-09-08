@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Job/Internship Application Tracker</title>
+  <!-- Basic clean styling via static CSS (NO JavaScript used anywhere) -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="container">
+    <!-- Page Header -->
+    <header class="header">
+      <h1>Job/Internship Application Tracker</h1>
+      <p>Track your applications, statuses, and links in one place. Powered by Flask and SQLAlchemy.</p>
+    </header>
+
+    <!-- Summary Stats Calculated with Jinja2 (Pure server-side rendering, zero JS) -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-title">Total Applications</div>
+        <div class="stat-value">{{ applications|length }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-title">Applied</div>
+        <div class="stat-value">
+          {{ applications|selectattr('status', 'equalto', 'Applied')|list|length }}
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-title">Interviewing</div>
+        <div class="stat-value">
+          {{ applications|selectattr('status', 'equalto', 'Interviewing')|list|length }}
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-title">Offers</div>
+        <div class="stat-value">
+          {{ applications|selectattr('status', 'equalto', 'Offered')|list|length }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Applications Table Card -->
+    <div class="table-card">
+      <div class="table-header-bar">
+        <h2>Applications List</h2>
+        <span class="api-hint">API: GET /api/applications</span>
+      </div>
+
+      <div class="table-responsive">
+        {% if applications %}
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Company</th>
+              <th>Role</th>
+              <th>Applied Date</th>
+              <th>Status</th>
+              <th>Job Link</th>
+              <th>Resume</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for app in applications %}
+            <tr>
+              <td><strong>#{{ app.id }}</strong></td>
+              <td>{{ app.company }}</td>
+              <td>{{ app.role }}</td>
+              <td>{{ app.applied_date }}</td>
+              <td>
+                {% if app.status == 'Applied' %}
+                  <span class="badge badge-applied">Applied</span>
+                {% elif app.status == 'Interviewing' %}
+                  <span class="badge badge-interviewing">Interviewing</span>
+                {% elif app.status == 'Offered' %}
+                  <span class="badge badge-offered">Offered</span>
+                {% elif app.status == 'Rejected' %}
+                  <span class="badge badge-rejected">Rejected</span>
+                {% else %}
+                  <span class="badge badge-applied">{{ app.status }}</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if app.job_link %}
+                  <a href="{{ app.job_link }}" target="_blank" rel="noopener noreferrer" class="link-btn">View Posting &rarr;</a>
+                {% else %}
+                  <span style="color: var(--text-muted);">&mdash;</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if app.resume_version %}
+                  <span class="tag">{{ app.resume_version }}</span>
+                {% else %}
+                  <span style="color: var(--text-muted);">&mdash;</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <!-- Empty state when no records exist yet -->
+        <div class="empty-state">
+          <h3>No applications tracked yet</h3>
+          <p>You can create a new record by sending a POST request to <code>/api/applications</code> with JSON data:</p>
+          <div class="code-box">
+curl -X POST http://127.0.0.1:5001/api/applications \<br>
+&nbsp;&nbsp;-H "Content-Type: application/json" \<br>
+&nbsp;&nbsp;-d '{"company": "Google", "role": "Software Engineer Intern", "status": "Applied", "resume_version": "v1"}'
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</body>
+</html>
