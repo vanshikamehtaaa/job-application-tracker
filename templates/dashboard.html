@@ -130,7 +130,17 @@
             {% for app in applications %}
             <tr>
               <td><strong>#{{ app.id }}</strong></td>
-              <td><strong>{{ app.company }}</strong></td>
+              <td>
+                {% if app.job_link %}
+                  <a href="{{ app.job_link }}" target="_blank" rel="noopener noreferrer" class="company-link" title="Open job posting">
+                    {{ app.company }} <span class="external-icon">&nearr;</span>
+                  </a>
+                {% else %}
+                  <a href="https://www.google.com/search?q={{ app.company }}+careers" target="_blank" rel="noopener noreferrer" class="company-link" title="Search {{ app.company }} careers">
+                    {{ app.company }} <span class="external-icon">&nearr;</span>
+                  </a>
+                {% endif %}
+              </td>
               <td>{{ app.role }}</td>
               <td>{{ app.applied_date }}</td>
               <td>

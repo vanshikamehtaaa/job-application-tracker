@@ -412,3 +412,23 @@ tbody tr:hover {
   border-color: #ef4444;
 }
 
+.company-link {
+  color: var(--primary);
+  font-weight: 700;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.company-link:hover {
+  text-decoration: underline;
+  color: var(--primary-hover);
+}
+
+.external-icon {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+
