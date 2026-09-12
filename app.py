@@ -160,19 +160,19 @@ def create_application():
 
 @app.route("/api/applications/<int:id>", methods=["GET"])
 def get_application_by_id(id):
-    application = db.session.get(JobApplication, id)
-    if not application:
+    applications = db.session.get(JobApplication, id)
+    if not applications:
         return jsonify({"error": f"Application with ID {id} not found."}), 404
-    return jsonify(application.to_dict()), 200
+    return jsonify(applications.to_dict()), 200
 
 
 @app.route("/api/applications/<int:id>", methods=["DELETE"])
 def delete_application_by_id(id):
-    application = db.session.get(JobApplication, id)
-    if not application:
+    applications = db.session.get(JobApplication, id)
+    if not applications:
         return jsonify({"error": f"Application with ID {id} not found"}), 404
     try:
-        db.session.delete(application)
+        db.session.delete(applications)
         db.session.commit()
         return jsonify({"message": "Application deleted"}), 200
     except Exception as e:
@@ -182,26 +182,45 @@ def delete_application_by_id(id):
 
 @app.route("/api/applications/<int:id>", methods=["PUT"])
 def update_application_by_id(id):
-    application = db.session.get(JobApplication, id)
-    if not application:
+    applications = db.session.get(JobApplication, id)
+    if not applications:
         return jsonify({"error": "Application not found"}), 404
     data = request.get_json()
     try:
         if data.get("company"):
-            application.company = data.get("company")
+            applications.company = data.get("company")
         if data.get("role"):
-            application.role = data.get("role")
+            applications.role = data.get("role")
         if data.get("status"):
-            application.status = data.get("status")
+            applications.status = data.get("status")
         if data.get("job_link"):
-            application.job_link = data.get("job_link")
+            applications.job_link = data.get("job_link")
         if data.get("resume_version"):
-            application.resume_version = data.get("resume_version")
+            applications.resume_version = data.get("resume_version")
         db.session.commit()
         return jsonify({"message": "Application updated successfully"}), 200
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": "Failed to update Application"}), 500
+
+
+@app.route("/api/applications/status/<status>", methods=["GET"])
+def search_application_by_status(status):
+    applications = JobApplication.query.filter_by(status=status).all()
+    if not applications:
+        return jsonify({"error": "No Application Found"}), 404
+    application_data = [app_record.to_dict() for app_record in applications]
+    return jsonify(application_data), 200
+
+
+@app.route("/api/applications/company/<company>", methods=["GET"])
+def search_application_by_company(company):
+    applications = JobApplication.query.filter_by(company=company).all()
+    if not applications:
+        return jsonify({"error": "No Application Found"}), 404
+    application_data = [app_data.to_dict() for app_data in applications]
+    return jsonify(application_data), 200
+
 
 # ==============================================================================
 # 4. APPLICATION RUNNER
