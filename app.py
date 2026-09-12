@@ -1,13 +1,16 @@
 import os
 import datetime
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, redirect, url_for, flash
 from sqlalchemy import func, or_
 from models import db, JobApplication
 
-
-
 app = Flask(__name__)
 
+# Secret key required for Flask session & flash alert messages
+app.secret_key = os.getenv("SECRET_KEY", "job-tracker-secret-key-2026")
+
+# Allowed application statuses for validation
+ALLOWED_STATUSES = ["Applied", "Interviewing", "Offered", "Rejected"]
 
 DB_USER = os.getenv("DB_USER", "root")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "mysqlpass")
@@ -33,19 +36,82 @@ with app.app_context():
 
 
 # ==============================================================================
-# 2. WEB UI ROUTE (HTML / JINJA2 TEMPLATE)
+# 2. WEB UI ROUTES (HTML / JINJA2 TEMPLATES - NO JAVASCRIPT)
 # ==============================================================================
 
 # Route: GET /
-# Description:
-#   Renders the dashboard HTML page using Jinja2 templates.
-#   It queries all job applications from the MySQL database and passes them
-#   to the 'dashboard.html' template. There is NO JavaScript used here or in the template.
 @app.route("/", methods=["GET"])
 def dashboard():
     # Fetch all job application records ordered by applied_date descending
     applications = JobApplication.query.order_by(JobApplication.applied_date.desc()).all()
-    return render_template("dashboard.html", applications=applications)
+    today_str = datetime.date.today().strftime("%Y-%m-%d")
+    return render_template("dashboard.html", applications=applications, today=today_str)
+
+
+# Route: POST /applications/add (Web UI form submission)
+@app.route("/applications/add", methods=["POST"])
+def add_application_form():
+    company = request.form.get("company", "").strip()
+    role = request.form.get("role", "").strip()
+
+    if not company or not role:
+        flash("Both Company and Role are required fields!", "error")
+        return redirect(url_for("dashboard"))
+
+    # Parse applied_date from HTML date input (format: YYYY-MM-DD)
+    applied_date_str = request.form.get("applied_date")
+    if applied_date_str:
+        try:
+            applied_date = datetime.datetime.strptime(applied_date_str, "%Y-%m-%d").date()
+        except ValueError:
+            applied_date = datetime.date.today()
+    else:
+        applied_date = datetime.date.today()
+
+    status = request.form.get("status", "Applied").strip()
+    if status not in ALLOWED_STATUSES:
+        status = "Applied"
+
+    job_link = request.form.get("job_link", "").strip() or None
+    resume_version = request.form.get("resume_version", "").strip() or None
+
+    new_app = JobApplication(
+        company=company,
+        role=role,
+        applied_date=applied_date,
+        status=status,
+        job_link=job_link,
+        resume_version=resume_version
+    )
+
+    try:
+        db.session.add(new_app)
+        db.session.commit()
+        flash(f"Application for '{company} ({role})' added successfully!", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Failed to add application: {str(e)}", "error")
+
+    return redirect(url_for("dashboard"))
+
+
+# Route: POST /applications/delete/<id> (Web UI form delete button)
+@app.route("/applications/delete/<int:id>", methods=["POST"])
+def delete_application_form(id):
+    application = db.session.get(JobApplication, id)
+    if not application:
+        flash(f"Application #{id} not found.", "error")
+        return redirect(url_for("dashboard"))
+
+    try:
+        db.session.delete(application)
+        db.session.commit()
+        flash(f"Application #{id} for '{application.company}' deleted successfully.", "info")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Failed to delete application: {str(e)}", "error")
+
+    return redirect(url_for("dashboard"))
 
 
 # ==============================================================================
@@ -127,6 +193,11 @@ def create_application():
 
     # Optional fields with sane defaults
     status = data.get("status", "Applied").strip() if data.get("status") else "Applied"
+    if status not in ALLOWED_STATUSES:
+        return jsonify({
+            "error": f"Invalid status '{status}'. Allowed values are: {', '.join(ALLOWED_STATUSES)}"
+        }), 400
+
     job_link = data.get("job_link")
     resume_version = data.get("resume_version")
 
@@ -193,7 +264,12 @@ def update_application_by_id(id):
         if data.get("role"):
             applications.role = data.get("role")
         if data.get("status"):
-            applications.status = data.get("status")
+            new_status = str(data.get("status")).strip()
+            if new_status not in ALLOWED_STATUSES:
+                return jsonify({
+                    "error": f"Invalid status '{new_status}'. Allowed values are: {', '.join(ALLOWED_STATUSES)}"
+                }), 400
+            applications.status = new_status
         if data.get("job_link"):
             applications.job_link = data.get("job_link")
         if data.get("resume_version"):
@@ -264,6 +340,10 @@ def update_application_status(id):
     new_status = str(data.get("status")).strip()
     if not new_status:
         return jsonify({"error": "'status' cannot be empty."}), 400
+    if new_status not in ALLOWED_STATUSES:
+        return jsonify({
+            "error": f"Invalid status '{new_status}'. Allowed values are: {', '.join(ALLOWED_STATUSES)}"
+        }), 400
 
     try:
         application.status = new_status

@@ -37,7 +37,7 @@ class JobApplication(db.Model):
     resume_version = db.Column(db.String(50), nullable=True)
 
     # Timestamp when this record was added to our database
-    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.now, nullable=False)
 
     def to_dict(self):
         """
