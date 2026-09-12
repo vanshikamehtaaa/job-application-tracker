@@ -1,6 +1,7 @@
 import os
 import datetime
 from flask import Flask, request, jsonify, render_template
+from sqlalchemy import func, or_
 from models import db, JobApplication
 
 
@@ -220,6 +221,104 @@ def search_application_by_company(company):
         return jsonify({"error": "No Application Found"}), 404
     application_data = [app_data.to_dict() for app_data in applications]
     return jsonify(application_data), 200
+
+
+@app.route("/api/applications/role/<role>", methods=["GET"])
+def search_application_by_role(role):
+    # Case-insensitive substring match for role (e.g. 'engineer' or 'frontend')
+    applications = JobApplication.query.filter(JobApplication.role.ilike(f"%{role}%")).all()
+    if not applications:
+        return jsonify({"error": f"No applications found for role '{role}'"}), 404
+    application_data = [app_data.to_dict() for app_data in applications]
+    return jsonify(application_data), 200
+
+
+@app.route("/api/applications/stats", methods=["GET"])
+def get_application_stats():
+    total = JobApplication.query.count()
+    # Group by status to get breakdown counts
+    status_counts = db.session.query(
+        JobApplication.status, func.count(JobApplication.id)
+    ).group_by(JobApplication.status).all()
+    breakdown = {status: count for status, count in status_counts}
+
+    unique_companies = db.session.query(func.count(func.distinct(JobApplication.company))).scalar() or 0
+
+    return jsonify({
+        "total_applications": total,
+        "unique_companies": unique_companies,
+        "status_breakdown": breakdown
+    }), 200
+
+
+@app.route("/api/applications/<int:id>/status", methods=["PATCH"])
+def update_application_status(id):
+    application = db.session.get(JobApplication, id)
+    if not application:
+        return jsonify({"error": f"Application with ID {id} not found"}), 404
+
+    data = request.get_json()
+    if not data or not data.get("status"):
+        return jsonify({"error": "Missing 'status' in request body."}), 400
+
+    new_status = str(data.get("status")).strip()
+    if not new_status:
+        return jsonify({"error": "'status' cannot be empty."}), 400
+
+    try:
+        application.status = new_status
+        db.session.commit()
+        return jsonify({
+            "message": "Status updated successfully",
+            "application": application.to_dict()
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": "Failed to update status", "details": str(e)}), 500
+
+
+@app.route("/api/applications/search", methods=["GET"])
+def search_applications():
+    query = request.args.get("q", "").strip()
+    if not query:
+        return jsonify({"error": "Search query parameter 'q' is required. Example: /api/applications/search?q=google"}), 400
+
+    applications = JobApplication.query.filter(
+        or_(
+            JobApplication.company.ilike(f"%{query}%"),
+            JobApplication.role.ilike(f"%{query}%")
+        )
+    ).all()
+
+    return jsonify({
+        "query": query,
+        "count": len(applications),
+        "applications": [app_data.to_dict() for app_data in applications]
+    }), 200
+
+
+@app.route("/api/applications/recent", methods=["GET"])
+def get_recent_applications():
+    days_param = request.args.get("days", 7)
+    try:
+        days = int(days_param)
+        if days <= 0:
+            return jsonify({"error": "Parameter 'days' must be a positive number."}), 400
+    except ValueError:
+        return jsonify({"error": "Query parameter 'days' must be an integer."}), 400
+
+    cutoff_date = datetime.date.today() - datetime.timedelta(days=days)
+    applications = JobApplication.query.filter(
+        JobApplication.applied_date >= cutoff_date
+    ).order_by(JobApplication.applied_date.desc()).all()
+
+    return jsonify({
+        "days": days,
+        "cutoff_date": cutoff_date.strftime("%Y-%m-%d"),
+        "count": len(applications),
+        "applications": [app_data.to_dict() for app_data in applications]
+    }), 200
+
 
 
 # ==============================================================================
